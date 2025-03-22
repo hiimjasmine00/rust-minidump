@@ -793,7 +793,7 @@ Loaded modules:
                 module.base_address(),
                 module.base_address() + module.size() - 1,
                 name,
-                module.version().unwrap_or(Cow::Borrowed("???"))
+                module.debug_identifier().map(|s| s.breakpad().to_string()).unwrap_or("???".to_string())
             )?;
             if eq_some(main_address, module.base_address()) {
                 write!(f, "  (main)")?;

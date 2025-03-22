@@ -15,6 +15,7 @@ use std::convert::TryInto;
 use std::fmt;
 use std::fs::File;
 use std::io;
+use std::io::BufReader;
 use std::io::prelude::*;
 use std::iter;
 use std::marker::PhantomData;
@@ -856,6 +857,31 @@ fn ensure_count_in_bound(
     Ok((number_of_entries, expected_size))
 }
 
+fn get_config_buildid(is_fmod: bool, is_arm64: bool) -> Option<CodeView> {
+    let file = File::open("config.toml").ok()?;
+    let mut buf_reader = BufReader::new(file);
+    let mut contents = String::new();
+    buf_reader.read_to_string(&mut contents).unwrap();
+    let config = contents.parse::<toml::Table>().unwrap();
+
+    let module_group = if is_fmod { "libfmod" } else { "libcocos2dcpp" };
+    let platform = if is_arm64 { "arm64_build_id" } else { "armv7_build_id" };
+    let build_id_str = config[module_group][platform].as_str().unwrap();
+
+    let build_id = build_id_str
+        .as_bytes()
+        .chunks(2)
+        .map(|chunk| u8::from_str_radix(str::from_utf8(chunk).unwrap(), 16).unwrap())
+        .collect::<Vec<u8>>();
+
+    Some(CodeView::Elf(
+        md::CV_INFO_ELF {
+            cv_signature: 0xdeadbeef, // unused
+            build_id
+        }
+    ))
+}
+
 impl MinidumpModule {
     /// Create a `MinidumpModule` with some basic info.
     ///
@@ -884,9 +910,29 @@ impl MinidumpModule {
         system_info: Option<&MinidumpSystemInfo>,
     ) -> Result<MinidumpModule, Error> {
         let mut offset = raw.module_name_rva as usize;
-        let name =
+        let mut name =
             read_string_utf16(&mut offset, bytes, endian).ok_or(Error::CodeViewReadFailure)?;
-        let codeview_info = if raw.cv_record.data_size == 0 {
+
+        let is_split_config = name.contains("split_config");
+        let is_64bit = match system_info {
+            Some(info) => info.cpu == Cpu::Arm64,
+            None => false,
+        };
+
+        // libfmod is around 1-2mb, while libcocos2dcpp is way above 15mb (32 bit is a bit smaller, but still works)
+        // this check should be safe enough to determine which module are we looking at
+        let is_fmod = raw.size_of_image < 5_000_000;
+
+        if is_split_config {
+            let mod_name = if is_fmod { "libfmod.so" } else { "libcocos2dcpp.so" };
+            let arch_name = if is_64bit { "arm64-v8a" } else { "armeabi-v7a" };
+
+            name = format!("/lib/{}/{}", arch_name, mod_name);
+        }
+
+        let codeview_info = if is_split_config {
+            get_config_buildid(is_fmod, is_64bit)
+        } else if raw.cv_record.data_size == 0 {
             None
         } else {
             Some(read_codeview(&raw.cv_record, bytes, endian).ok_or(Error::CodeViewReadFailure)?)
