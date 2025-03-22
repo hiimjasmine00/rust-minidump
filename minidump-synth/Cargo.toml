@@ -1,16 +1,14 @@
 [package]
 name = "minidump-synth"
 description = "A library for producing synthetic minidumps for testing."
-version = "0.24.1"
-license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/rust-minidump/rust-minidump"
-repository = "https://github.com/rust-minidump/rust-minidump"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [dependencies]
 test-assembler = "0.1.5"
-minidump-common = { version = "0.24.1", path = "../minidump-common" }
+minidump-common = { version = "0.25.0", path = "../minidump-common" }
 scroll = "0.12.0"

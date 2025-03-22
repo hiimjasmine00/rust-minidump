@@ -3,9 +3,12 @@
 Nothing Yet!
 
 
-# Version 0.24.1 (2025-02-17)
+# Version 0.25.0 (2025-03-19)
 
-Nothing Yet!
+* Add "soft_errors" to the JSON, human, and dump output formats
+* Updated the wholesym crate to version 0.8.1 to pick up demangling improvements
+
+# Version 0.24.1 (2025-02-17)
 
 * Updated the Windows-specific error codes with the ones from
   version 10.0.26100 of the Windows SDK.
